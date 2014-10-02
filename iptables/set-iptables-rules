@@ -1,0 +1,119 @@
+#!/bin/bash
+
+#===============================================================================
+#
+#         FILE:  set-iptable-rules
+#
+#        USAGE:  ./set-iptable-rules
+#
+#  DESCRIPTION:  Basic IPTable script
+#
+#         BUGS:  ---
+#        NOTES:  Handle IPv4 and IPv6
+#       AUTHOR:  david@edoras.fr
+#      VERSION:  0.1
+#      CREATED:  2014-08-20
+#
+#===============================================================================
+
+
+#------
+#
+# IPv4
+#
+#------
+
+### INITIALIZE #################################
+
+# Flush all rules and tables
+iptables -F
+iptables -X
+
+# Set Default Policies : Drop Input, OUtput and Forward Trafic
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+# Enable free use of loopback interfaces
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+# All TCP sessions should begin with SYN
+iptables -A INPUT -p tcp ! --syn -m state --state NEW -s 0.0.0.0/0 -j DROP
+
+# Accept Established TCP connection
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -I OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+### INPUT #################################
+
+# Accept HTTP/HTTPS Connection
+iptables -A INPUT -p tcp --dport 80 -m state --state NEW -s 0.0.0.0/0 -j ACCEPT
+iptables -A INPUT -p tcp --dport 443 -m state --state NEW -s 0.0.0.0/0 -j ACCEPT
+
+# Accept SSH Connection
+iptables -A INPUT -p tcp --dport 22 -m state --state NEW -s 0.0.0.0/0 -j ACCEPT
+
+# Accept inbound ICMP messages
+iptables -A INPUT -p ICMP --icmp-type 8 -s 0.0.0.0/0 -j ACCEPT
+iptables -A INPUT -p ICMP --icmp-type 11 -s 0.0.0.0/0 -j ACCEPT
+
+### OUTPUT #################################
+
+# Allow Ping from inside
+iptables -A OUTPUT -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A INPUT -p icmp --icmp-type echo-reply -j ACCEPT
+
+# Allow TCP & UDP OUTPUT
+iptables -A OUTPUT -p tcp -d 0.0.0.0/0 -j ACCEPT
+iptables -A OUTPUT -p udp -d 0.0.0.0/0 -j ACCEPT
+
+### LOGGING #################################
+
+# Log other input trafic
+iptables -A INPUT -j LOG
+
+
+#------
+#
+# IPv6
+#
+#------
+
+### INITIALIZE #################################
+
+# Flush all rules and tables
+ip6tables -F
+ip6tables -X
+
+# Set Default Policies : Drop Input, OUtput and Forward Trafic
+ip6tables -P INPUT DROP
+ip6tables -P OUTPUT DROP
+ip6tables -P FORWARD DROP
+
+# Enable free use of loopback interfaces
+ip6tables -A INPUT -i lo -j ACCEPT
+ip6tables -A OUTPUT -o lo -j ACCEPT
+
+# All TCP sessions should begin with SYN
+ip6tables -A INPUT -p tcp ! --syn -m state --state NEW -s ::/0 -j DROP
+
+# Accept Established TCP connection
+ip6tables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+ip6tables -I OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+### INPUT #################################
+
+# Accept SSH Connection
+ip6tables -A INPUT -p tcp --dport 22 -m state --state NEW -s ::/0 -j ACCEPT
+
+### OUTPUT #################################
+
+# Allow TCP & UDP OUTPUT
+ip6tables -A OUTPUT -p tcp -d ::/0 -j ACCEPT
+ip6tables -A OUTPUT -p udp -d ::/0 -j ACCEPT
+
+### LOGGING #################################
+
+# Log other input trafic
+ip6tables -A INPUT -j LOG
